@@ -1,17 +1,6 @@
-//#include <FastLED.h>
 #include <Servo.h>
 
-/*#define LED_PIN     6
-#define COLOR_ORDER GRB
-#define CHIPSET     WS2812
-#define NUM_LEDS    16
-
-#define BRIGHTNESS  200
-#define FRAMES_PER_SECOND 60
-*/
 bool gReverseDirection = false;
-
-//CRGB leds[NUM_LEDS];
 
 Servo servoX;
 Servo servoY;
@@ -23,13 +12,26 @@ int valYOld;
 int Energy = 100;
 int OldEnergy = 0;
 
+int mode = 1;  // 0=nothing, 1=shootRandomDirection
+
+
+
+#define TROUND
+#ifdef TSQUARE
+uint8_t pathX[] = {50, 140, 90};
+uint8_t pathY[] = {20, 70, 50};
+#endif
+#ifdef TROUND
+uint8_t pathX[] = {50, 90, 130, 50};
+uint8_t pathY[] = {50, 100, 60, 50};
+#endif
+
+
 void setup() {
   Serial.begin(2400);
+  Serial.println(sizeof(pathX));
   
   delay(3000); // sanity delay
-  //FastLED.addLeds<CHIPSET, LED_PIN, COLOR_ORDER>(leds, NUM_LEDS).setCorrection( TypicalLEDStrip );
-  //FastLED.setBrightness( BRIGHTNESS );
-
   servoX.attach(9);
   servoY.attach(10); 
 }
@@ -44,6 +46,21 @@ void loop()
     // Energy level has been changed - react here
     Serial.println("Energy changed!");
   }
+
+  switch(mode) {
+    case 0:
+      nothing();
+      break;
+    case 1:
+      shootRandomDirection();
+      break;
+  }
+
+  
+  //FastLED.show(); // display this frame
+  //FastLED.delay(1000 / FRAMES_PER_SECOND);
+}
+void nothing() {
   if(valX != valXOld) {
     valXOld = valX;
     servoX.write(valX);
@@ -52,17 +69,31 @@ void loop()
     valYOld = valY;
     servoY.write(valY);
   }
+}
 
-  /*valX = analogRead(A0);            
-  valX = map(valX, 0, 1023, 0, 180);     
-  servoX.write(valX);
+uint8_t pathS[] = {10, 20, 5, 8};
+int pathIndex = 0;
+uint32_t pathTicks = 0;
 
-  valY = analogRead(A1);            
-  valY = map(valY, 0, 1023, 0, 180);     
-  servoY.write(valY);*/
-  
-  //FastLED.show(); // display this frame
-  //FastLED.delay(1000 / FRAMES_PER_SECOND);
+void shootRandomDirection() {
+  static uint16_t timestamp = millis();
+
+  if(((uint16_t)millis()-timestamp) > 1) {
+    timestamp += 1;
+    int pathIndex2 = pathIndex+1;
+    if(pathIndex2>=sizeof(pathX)) pathIndex2 = 0;
+    int valX = map(pathTicks, 0,50000, pathX[pathIndex], pathX[pathIndex2]);
+    int valY = map(pathTicks, 0,50000, pathY[pathIndex], pathY[pathIndex2]);
+    pathTicks += pathS[pathIndex];
+    if(pathTicks > 50000) {
+      pathTicks = 0;
+      pathIndex++;
+      if(pathIndex>=sizeof(pathX)) pathIndex = 0;
+      Serial.println(pathIndex);
+    }
+    servoX.write(valX);
+    servoY.write(valY);
+  }
 }
 
 void receive_serial_cmd(void) {
